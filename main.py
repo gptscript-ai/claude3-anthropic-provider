@@ -8,11 +8,11 @@ from prompt_constructors import *
 app = FastAPI()
 
 
-@app.middleware("http")
-async def log_body(request: Request, call_next):
-    body = await request.body()
-    print("REQUEST BODY: ", body)
-    return await call_next(request)
+# @app.middleware("http")
+# async def log_body(request: Request, call_next):
+#     body = await request.body()
+#     print("REQUEST BODY: ", body)
+#     return await call_next(request)
 
 
 @app.get("/models")
@@ -51,7 +51,6 @@ async def completions(request: Request) -> StreamingResponse:
         try:
             if 'role' in message.keys() and message["role"] == "tool":
                 tool_outputs_xml = construct_tool_outputs_message([message], None)
-                # message["role"] = "delete"
         except Exception as e:
             print("an error happened mapping tool response: ", e)
 
@@ -64,8 +63,6 @@ async def completions(request: Request) -> StreamingResponse:
                         "tool_arguments": tool_call["function"]["arguments"],
                     })
                 tool_inputs_xml = construct_tool_inputs_message(message["content"], tool_inputs)
-                print("PRINT TOOL INPUTS: ", tool_inputs)
-        #                 message["role"] = "delete"
 
         except Exception as e:
             print("an error happened mapping tool_calls: ", e)
@@ -78,14 +75,10 @@ async def completions(request: Request) -> StreamingResponse:
         content = tool_inputs_xml
         if tool_outputs_xml != "":
             content += "\n" + tool_outputs_xml
-        print("LIST COMPLETE TOOL MESSAGE: ", content)
         messages.append({
             "role": "assistant",
             "content": content,
         })
-
-    # print("SYSTEM: ", system)
-    print("MESSAGES: ", messages)
 
     if data["model"].startswith("anthropic."):
         client = AsyncAnthropicBedrock()
@@ -101,10 +94,8 @@ async def completions(request: Request) -> StreamingResponse:
             stop_sequences=["</function_calls>"],
     ) as stream:
         accumulated = await stream.get_final_message()
-        print("accumulated response: ", accumulated.model_dump_json())
 
     response = "data: " + translate_response(accumulated.json()) + "\n\n"
-
     return StreamingResponse(response, media_type="application/x-ndjson")
 
 
@@ -138,7 +129,6 @@ def translate_response(response) -> str:
                     },
                 })
 
-            print("PRINT PARSED TOOL_CALLS: ", parsed_tool_calls)
             message.pop("text", None)
             message.pop("type", None)
             message["tool_calls"] = parsed_tool_calls
@@ -156,8 +146,6 @@ def translate_response(response) -> str:
     if "stop_reason" in data.keys() and data["stop_reason"] == "end_turn":
         finish_reason = "stop"
 
-    print("RESPONSE: ", data)
-
     translated = {
         "id": data["id"],
         "object": "chat.completion.chunk",
@@ -172,7 +160,5 @@ def translate_response(response) -> str:
         ],
         "finish_reason": finish_reason,
     }
-
-    print("TRANSLATED RESPONSE: ", translated)
 
     return json.dumps(translated)
