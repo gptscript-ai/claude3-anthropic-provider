@@ -11,10 +11,11 @@ app = FastAPI()
 # @app.middleware("http")
 # async def log_body(request: Request, call_next):
 #     body = await request.body()
-#     print("REQUEST BODY: ", body)
+#     print("HTTP REQUEST BODY: ", body)
 #     return await call_next(request)
 
 
+# The anthropic API does not have a method to list models, so we are hard coding the models here
 @app.get("/models")
 async def list_models() -> JSONResponse:
     return JSONResponse(content={"data": [
@@ -25,86 +26,90 @@ async def list_models() -> JSONResponse:
     })
 
 
-@app.post("/chat/completions")
-async def completions(request: Request) -> StreamingResponse:
+def map_req(req: dict) -> dict:
     system: str | None = ""
-    data = await request.body()
-    data = json.loads(data)
+
     max_tokens = 4096
-    try:
-        tools = data["tools"]
-        system += construct_tool_use_system_prompt(tools)
-    except KeyError as e:
-        print("an error happened with tools - key 'tools' not present ")
-        tools = []
+    if 'max_tokens' in req.keys():
+        max_tokens = req["max_tokens"]
 
-    messages = data["messages"]
-    tool_inputs_xml = ""
-    tool_outputs_xml = ""
+    if "tools" in req.keys():
+        system += construct_tool_use_system_prompt(req["tools"])
+
+    messages = req["messages"]
+
+    tool_inputs_xml: list[str] = []
+    tool_outputs_xml: list[str] = []
     for message in messages:
-        try:
-            if 'role' in message.keys() and message["role"] == "system":
-                system += message["content"] + "\n"
-        except Exception as e:
-            print("an error happened with system message: ", e)
+        if 'role' in message.keys() and message["role"] == "system":
+            system += message["content"] + "\n"
 
-        try:
-            if 'role' in message.keys() and message["role"] == "tool":
-                tool_outputs_xml = construct_tool_outputs_message([message], None)
-        except Exception as e:
-            print("an error happened mapping tool response: ", e)
+        if 'role' in message.keys() and message["role"] == "tool":
+            tool_outputs_xml.append(construct_tool_outputs_message([message], None))
 
-        try:
-            if 'role' in message.keys() and message["role"] == "assistant":
-                tool_inputs = []
-                for tool_call in message["tool_calls"]:
-                    tool_inputs.append({
-                        "tool_name": tool_call["function"]["name"],
-                        "tool_arguments": tool_call["function"]["arguments"],
-                    })
-                tool_inputs_xml = construct_tool_inputs_message(message["content"], tool_inputs)
-
-        except Exception as e:
-            print("an error happened mapping tool_calls: ", e)
+        if 'role' in message.keys() and message["role"] == "assistant":
+            tool_inputs = []
+            for tool_call in message["tool_calls"]:
+                tool_inputs.append({
+                    "tool_name": tool_call["function"]["name"],
+                    "tool_arguments": tool_call["function"]["arguments"],
+                })
+            tool_inputs_xml.append(construct_tool_inputs_message(message["content"], tool_inputs))
 
     messages = [d for d in messages if d.get('role') != 'system']
     messages = [d for d in messages if d.get('role') != 'assistant']
     messages = [d for d in messages if d.get('role') != 'tool']
 
-    if tool_inputs_xml != "":
-        content = tool_inputs_xml
-        if tool_outputs_xml != "":
-            content += "\n" + tool_outputs_xml
+    if tool_inputs_xml != []:
+        content: str = '\n'.join(tool_inputs_xml)
+        if tool_outputs_xml != []:
+            content += '\n'.join(tool_outputs_xml)
         messages.append({
             "role": "assistant",
             "content": content,
         })
 
-    if data["model"].startswith("anthropic."):
+    mapped_req = {
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "system": system,
+        "model": req["model"],
+        "temperature": req["temperature"],
+    }
+    return mapped_req
+
+
+@app.post("/chat/completions")
+async def completions(request: Request) -> StreamingResponse:
+    data = await request.body()
+    req = map_req(json.loads(data))
+
+    if req["model"].startswith("anthropic."):
         client = AsyncAnthropicBedrock()
     else:
         client = AsyncAnthropic()
 
     async with client.messages.stream(
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-            model=data["model"],
-            temperature=data["temperature"],
+            max_tokens=req["max_tokens"],
+            system=req["system"],
+            messages=req["messages"],
+            model=req["model"],
+            temperature=req["temperature"],
             stop_sequences=["</function_calls>"],
     ) as stream:
         accumulated = await stream.get_final_message()
 
-    response = "data: " + translate_response(accumulated.json()) + "\n\n"
-    return StreamingResponse(response, media_type="application/x-ndjson")
+    resp = "data: " + map_resp(accumulated.json()) + "\n\n"
+    return StreamingResponse(resp, media_type="application/x-ndjson")
 
 
-def translate_response(response) -> str:
+def map_resp(response) -> str:
     data = json.loads(response)
     finish_reason = None
     parsed_tool_calls = []
+
     for message in data["content"]:
-        if message["text"].startswith("<function_calls>"):
+        if 'text' in message.keys() and message["text"].startswith("<function_calls>"):
             xml_tool_calls = message["text"] + "</function_calls>"
             tool_calls = xmltodict.parse(xml_tool_calls)
             if tool_calls["function_calls"]["invoke"] is list:
@@ -135,10 +140,8 @@ def translate_response(response) -> str:
             message["content"] = None
             message["role"] = "assistant"
 
-        try:
+        if 'text' in message.keys():
             message["content"] = message["text"]
-        except KeyError:
-            print("No text field on this message: ", message)
 
     if "stop_reason" in data.keys() and data["stop_reason"] == "stop_sequence":
         finish_reason = "tool_calls"
