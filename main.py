@@ -109,7 +109,7 @@ def map_resp(response) -> str:
     parsed_tool_calls = []
 
     for message in data["content"]:
-        if 'text' in message.keys() and message["text"].startswith("<function_calls>"):
+        if 'text' in message.keys() and message["text"].lstrip().startswith("<function_calls>"):
             xml_tool_calls = message["text"] + "</function_calls>"
             tool_calls = xmltodict.parse(xml_tool_calls)
             if tool_calls["function_calls"]["invoke"] is list:
