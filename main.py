@@ -15,8 +15,18 @@ app = FastAPI()
 #     return await call_next(request)
 
 
+@app.post("/")
+async def post_root():
+    return 'ok'
+
+
+@app.get("/")
+async def get_root():
+    return 'ok'
+
+
 # The anthropic API does not have a method to list models, so we are hard coding the models here
-@app.get("/models")
+@app.get("/v1/models")
 async def list_models() -> JSONResponse:
     return JSONResponse(content={"data": [
         {"id": "claude-3-sonnet-20240229", "name": "Anthropic Claude 3 Sonnet"},
@@ -79,7 +89,7 @@ def map_req(req: dict) -> dict:
     return mapped_req
 
 
-@app.post("/chat/completions")
+@app.post("/v1/chat/completions")
 async def completions(request: Request) -> StreamingResponse:
     data = await request.body()
     req = map_req(json.loads(data))
