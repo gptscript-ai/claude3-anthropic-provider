@@ -100,6 +100,7 @@ async def completions(request: Request) -> StreamingResponse:
     req = map_req(json.loads(data))
 
     if req["model"].startswith("anthropic."):
+        print('here')
         client = AsyncAnthropicBedrock()
     else:
         client = AsyncAnthropic()

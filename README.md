@@ -1,4 +1,4 @@
-* You need either ANTHROPIC_API_KEY or AWS credentials configured, depending on which model you want to use.
+* You need either ANTHROPIC_API_KEY or AWS credentials and region configured, depending on which model you want to use.
 
 ```
 export ANTHROPIC_API_KEY=<your-api-key>
