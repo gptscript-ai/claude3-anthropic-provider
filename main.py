@@ -8,11 +8,11 @@ from prompt_constructors import *
 app = FastAPI()
 
 
-# @app.middleware("http")
-# async def log_body(request: Request, call_next):
-#     body = await request.body()
-#     print("HTTP REQUEST BODY: ", body)
-#     return await call_next(request)
+@app.middleware("http")
+async def log_body(request: Request, call_next):
+    body = await request.body()
+    print("HTTP REQUEST BODY: ", body)
+    return await call_next(request)
 
 
 @app.post("/")
@@ -73,12 +73,16 @@ def map_req(req: dict) -> dict:
 
     if tool_inputs_xml != []:
         content: str = '\n'.join(tool_inputs_xml)
-        if tool_outputs_xml != []:
-            content += '\n'.join(tool_outputs_xml)
         messages.append({
             "role": "assistant",
             "content": content,
         })
+        if tool_outputs_xml != []:
+            content: str = '\n'.join(tool_outputs_xml)
+            messages.append({
+                "role": "user",
+                "content": content,
+            })
 
     mapped_req = {
         "messages": messages,
@@ -100,6 +104,7 @@ async def completions(request: Request) -> StreamingResponse:
     else:
         client = AsyncAnthropic()
 
+    print("MESSAGES: ", req["messages"])
     async with client.messages.stream(
             max_tokens=req["max_tokens"],
             system=req["system"],
@@ -118,6 +123,8 @@ def map_resp(response) -> str:
     data = json.loads(response)
     finish_reason = None
     parsed_tool_calls = []
+
+    print("INITIAL DATA: ", data)
 
     for message in data["content"]:
         if 'text' in message.keys() and message["text"].lstrip().startswith("<function_calls>"):
@@ -159,7 +166,7 @@ def map_resp(response) -> str:
 
     if "stop_reason" in data.keys() and data["stop_reason"] == "end_turn":
         finish_reason = "stop"
-
+    print("DATA: ", data)
     translated = {
         "id": data["id"],
         "object": "chat.completion.chunk",
