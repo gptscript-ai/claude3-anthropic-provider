@@ -4,6 +4,14 @@
 export ANTHROPIC_API_KEY=<your-api-key>
 ```
 
+## Usage Example
+
+```
+gptscript --default-model='claude-3-haiku-20240307' from github.com/gptscript-ai/gemini-openai-shim' examples/bob.gpt
+```
+
+## Development
+
 Run using the following commands
 
 ```
