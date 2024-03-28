@@ -7,7 +7,7 @@ export ANTHROPIC_API_KEY=<your-api-key>
 ## Usage Example
 
 ```
-gptscript --default-model='claude-3-haiku-20240307 from github.com/gptscript-ai/claude3-openai-shim' examples/helloworld.gpt
+gptscript --default-model='claude-3-haiku-20240307 from github.com/gptscript-ai/anthropic-provider' examples/helloworld.gpt
 ```
 
 ## Development
@@ -23,6 +23,7 @@ pip install -r requirements.txt
 
 ```
 export OPENAI_BASE_URL=http://127.0.0.1:8000/v1
+export GPTSCRIPT_DEBUG=true
 
 # one of the anthropic-hosted models
 gptscript --default-model=claude-3-opus-20240229 examples/bob.gpt

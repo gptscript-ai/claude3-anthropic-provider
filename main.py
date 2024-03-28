@@ -1,3 +1,4 @@
+import os
 import xmltodict
 from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from fastapi import FastAPI, Request
@@ -5,13 +6,19 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from prompt_constructors import *
 
+debug = os.environ.get("GPTSCRIPT_DEBUG", "false") == "true"
 app = FastAPI()
+
+
+def log(*args):
+    if debug:
+        print(*args)
 
 
 @app.middleware("http")
 async def log_body(request: Request, call_next):
     body = await request.body()
-    print("HTTP REQUEST BODY: ", body)
+    log("HTTP REQUEST BODY: ", body)
     return await call_next(request)
 
 
@@ -33,8 +40,7 @@ async def list_models() -> JSONResponse:
         {"id": "claude-3-sonnet-20240229", "name": "Anthropic Claude 3 Sonnet"},
         {"id": "claude-3-haiku-20240307", "name": "Anthropic Claude 3 Haiku"},
         {"id": "anthropic.claude-3-sonnet-20240229-v1:0", "name": "AWS Bedrock Anthropic Claude 3 Sonnet"},
-    ]
-    })
+    ]})
 
 
 def map_req(req: dict) -> dict:
@@ -100,12 +106,12 @@ async def completions(request: Request) -> StreamingResponse:
     req = map_req(json.loads(data))
 
     if req["model"].startswith("anthropic."):
-        print('here')
+        log('here')
         client = AsyncAnthropicBedrock()
     else:
         client = AsyncAnthropic()
 
-    print("MESSAGES: ", req["messages"])
+    log("MESSAGES: ", req["messages"])
     async with client.messages.stream(
             max_tokens=req["max_tokens"],
             system=req["system"],
@@ -125,7 +131,7 @@ def map_resp(response) -> str:
     finish_reason = None
     parsed_tool_calls = []
 
-    print("INITIAL DATA: ", data)
+    log("INITIAL DATA: ", data)
 
     for message in data["content"]:
         if 'text' in message.keys() and message["text"].lstrip().startswith("<function_calls>"):
@@ -167,7 +173,7 @@ def map_resp(response) -> str:
 
     if "stop_reason" in data.keys() and data["stop_reason"] == "end_turn":
         finish_reason = "stop"
-    print("DATA: ", data)
+    log("DATA: ", data)
     translated = {
         "id": data["id"],
         "object": "chat.completion.chunk",
@@ -184,3 +190,9 @@ def map_resp(response) -> str:
     }
 
     return json.dumps(translated)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=int(os.environ.get("PORT", "8000")),
+                log_level="debug" if debug else "critical", reload=debug, access_log=debug)

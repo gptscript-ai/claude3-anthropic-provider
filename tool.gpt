@@ -1,3 +1,5 @@
-name: service
+Name: Anthropic Model Provider
+Description: Model provider for Anthropic hosted models and Claude3 on AWS
+Model Provider: true
 
-#!sys.daemon /usr/bin/env python3 -m uvicorn --app-dir ${GPTSCRIPT_TOOL_DIR} main:app --port=${PORT}
+#!sys.daemon /usr/bin/env python3 ${GPTSCRIPT_TOOL_DIR}/main.py
