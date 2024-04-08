@@ -174,6 +174,7 @@ def map_resp(response) -> str:
 
     if "stop_reason" in data.keys() and data["stop_reason"] == "end_turn":
         finish_reason = "stop"
+
     log("DATA: ", data)
     translated = {
         "id": data["id"],
@@ -185,9 +186,9 @@ def map_resp(response) -> str:
             {
                 "index": 0,
                 "delta": data["content"][0],
+                "finish_reason": finish_reason,
             },
         ],
-        "finish_reason": finish_reason,
     }
 
     return json.dumps(translated)
