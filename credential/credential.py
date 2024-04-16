@@ -4,18 +4,6 @@ import subprocess
 import sys
 
 import boto3
-import inquirer
-
-questions = [
-    inquirer.List(
-        name='provider',
-        message="What cloud provider are you using?",
-        choices=['AWS', 'Anthropic'],  # GCP eventually
-        carousel=True
-    )
-]
-
-answer = inquirer.prompt(questions)
 
 tool_input = {
     "message": "Please pick a model provider: AWS or Anthropic.",
