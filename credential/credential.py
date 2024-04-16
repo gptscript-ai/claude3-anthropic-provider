@@ -17,7 +17,25 @@ questions = [
 
 answer = inquirer.prompt(questions)
 
-if answer['provider'] == 'AWS':
+tool_input = {
+    "message": "Please pick a model provider: AWS or Anthropic.",
+    "fields": "provider",
+}
+command = ["gptscript", "--quiet=true", "--disable-cache", "sys.prompt", json.dumps(tool_input)]
+result = subprocess.run(command, stdin=None, stdout=subprocess.PIPE, text=True)
+if result.returncode != 0:
+    print("Failed to run sys.prompt.", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    resp = json.loads(result.stdout.strip())
+    provider = resp["provider"].lower()
+
+except json.JSONDecodeError:
+    print("Failed to decode JSON.", file=sys.stderr)
+    sys.exit(1)
+
+if provider == 'aws':
     client = boto3.client('sts')
     try:
         response = client.get_caller_identity()
@@ -33,7 +51,7 @@ if answer['provider'] == 'AWS':
         print("Please authenticate with AWS.", file=sys.stderr)
         sys.exit(1)
 
-elif answer['provider'] == 'GCP':
+elif provider == 'gcp':
     # TODO: some command to check if GCP creds are available
     output = {
         "env": {
@@ -43,7 +61,7 @@ elif answer['provider'] == 'GCP':
     print(json.dumps(output))
     sys.exit(0)
 
-elif answer['provider'] == 'Anthropic':
+elif provider == 'anthropic':
     if 'ANTHROPIC_API_KEY' not in os.environ:
         tool_input = {
             "message": "Please enter your Anthropic API token.",
