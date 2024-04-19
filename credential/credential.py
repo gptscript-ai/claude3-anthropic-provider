@@ -24,19 +24,17 @@ except json.JSONDecodeError:
     sys.exit(1)
 
 if provider == 'aws':
-    client = boto3.client('sts')
     try:
+        client = boto3.client('sts')
         response = client.get_caller_identity()
         output = {
             "env": {
                 "AWS": 'true',
             }
         }
-        print(json.dumps(output))
-        sys.exit(0)
 
-    except:
-        print("Please authenticate with AWS.", file=sys.stderr)
+    except Exception as e:
+        print("Please authenticate with AWS - ", e, file=sys.stderr)
         sys.exit(1)
 
 elif provider == 'gcp':
@@ -46,8 +44,7 @@ elif provider == 'gcp':
             "GCP": 'true',
         }
     }
-    print(json.dumps(output))
-    sys.exit(0)
+
 
 elif provider == 'anthropic':
     if 'ANTHROPIC_API_KEY' not in os.environ:
@@ -78,4 +75,5 @@ elif provider == 'anthropic':
             "ANTHROPIC_API_KEY": token,
         }
     }
-    print(json.dumps(output))
+
+print(json.dumps(output))
