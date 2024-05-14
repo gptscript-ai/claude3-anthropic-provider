@@ -1,4 +1,6 @@
 import os
+import re
+
 import xmltodict
 from anthropic import AsyncAnthropic, AsyncAnthropicBedrock
 from fastapi import FastAPI, Request
@@ -92,6 +94,10 @@ def map_req(req: dict) -> dict:
                 "content": content,
             })
 
+    for message in messages:
+        if 'role' in message.keys() and message["role"] == "":
+            message["role"] = "assistant"
+
     mapped_req = {
         "messages": messages,
         "max_tokens": max_tokens,
@@ -136,8 +142,10 @@ def map_resp(response) -> str:
     log("INITIAL DATA: ", data)
 
     for message in data["content"]:
-        if 'text' in message.keys() and message["text"].lstrip().startswith("<function_calls>"):
-            xml_tool_calls = message["text"] + "</function_calls>"
+        if 'text' in message.keys() and "<function_calls>" in message["text"]:
+            pattern = re.compile(r'(<function_calls>.*?</invoke>)', re.DOTALL)
+            match = pattern.search(message["text"])
+            xml_tool_calls = match.group(1) + "</function_calls>"
             tool_calls = xmltodict.parse(xml_tool_calls)
             if tool_calls["function_calls"]["invoke"] is list:
                 for key, value in tool_calls["function_calls"]["invoke"].items():
@@ -197,5 +205,6 @@ def map_resp(response) -> str:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", port=int(os.environ.get("PORT", "8000")),
                 log_level="debug" if debug else "critical", reload=debug, access_log=debug)
