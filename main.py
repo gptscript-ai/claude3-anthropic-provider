@@ -49,6 +49,7 @@ async def list_models() -> JSONResponse:
 
 def map_req(req: dict) -> dict:
     system: str | None = ""
+    mapped_messages: list[dict] = []
 
     max_tokens = 4096
     if 'max_tokens' in req.keys():
@@ -65,42 +66,64 @@ def map_req(req: dict) -> dict:
         if 'role' in message.keys() and message["role"] == "system":
             system += message["content"] + "\n"
 
+        if 'role' in message.keys() and message["role"] == "user":
+            mapped_messages.append({
+                "role": "user",
+                "content": [
+                    {
+                        "text": message["content"],
+                        "type": "text"
+                    },
+                ]
+            })
+
         if 'role' in message.keys() and message["role"] == "tool":
-            tool_outputs_xml.append(construct_tool_outputs_message([message], None))
+            content: str = '\n' + construct_tool_outputs_message([message], None)
+            mapped_messages.append({
+                "role": "user",
+                "content": content,
+            })
 
         if 'role' in message.keys() and message["role"] == "assistant":
-            tool_inputs = []
             if 'tool_calls' in message.keys():
+                tool_inputs = []
                 for tool_call in message["tool_calls"]:
                     tool_inputs.append({
                         "tool_name": tool_call["function"]["name"],
                         "tool_arguments": tool_call["function"]["arguments"],
                     })
-                tool_inputs_xml.append(construct_tool_inputs_message(message["content"], tool_inputs))
+                content: str = '\n' + construct_tool_inputs_message(message["content"], tool_inputs)
+                mapped_messages.append({
+                    "role": "assistant",
+                    "content": content,
+                })
+            else:
+                mapped_messages.append({
+                    "role": "assistant",
+                    "content": message["content"]
+                })
 
-    messages = [d for d in messages if d.get('role') != 'system']
-    messages = [d for d in messages if d.get('role') != 'assistant']
-    messages = [d for d in messages if d.get('role') != 'tool']
+    # if tool_inputs_xml != []:
+    #     content: str = '\n'.join(tool_inputs_xml)
+    #     messages.append({
+    #         "role": "assistant",
+    #         "content": content,
+    #     })
+    #     if tool_outputs_xml != []:
+    #         content: str = '\n'.join(tool_outputs_xml)
+    #         messages.append({
+    #             "role": "user",
+    #             "content": content,
+    #         })
 
-    if tool_inputs_xml != []:
-        content: str = '\n'.join(tool_inputs_xml)
-        messages.append({
-            "role": "assistant",
-            "content": content,
-        })
-        if tool_outputs_xml != []:
-            content: str = '\n'.join(tool_outputs_xml)
-            messages.append({
-                "role": "user",
-                "content": content,
-            })
-
-    for message in messages:
+    for message in mapped_messages:
         if 'role' in message.keys() and message["role"] == "":
             message["role"] = "assistant"
 
+    mapped_messages = merge_consecutive_dicts_with_same_value(mapped_messages, "role")
+
     mapped_req = {
-        "messages": messages,
+        "messages": mapped_messages,
         "max_tokens": max_tokens,
         "system": system,
         "model": req["model"],
@@ -109,18 +132,34 @@ def map_req(req: dict) -> dict:
     return mapped_req
 
 
+def merge_consecutive_dicts_with_same_value(list_of_dicts, key) -> list[dict]:
+    merged_list = []
+    index = 0
+    while index < len(list_of_dicts):
+        current_dict = list_of_dicts[index]
+        value_to_match = current_dict.get(key)
+        compared_index = index + 1
+        while compared_index < len(list_of_dicts) and list_of_dicts[compared_index].get(key) == value_to_match:
+            list_of_dicts[compared_index]["content"] = current_dict["content"] + (list_of_dicts[compared_index][
+                "content"])
+            current_dict.update(list_of_dicts[compared_index])
+            compared_index += 1
+        merged_list.append(current_dict)
+        index = compared_index
+    return merged_list
+
+
 @app.post("/v1/chat/completions")
 async def completions(request: Request) -> StreamingResponse:
     data = await request.body()
     req = map_req(json.loads(data))
+    log("MAPPED REQUEST: ", req)
 
     if req["model"].startswith("anthropic."):
-        log('here')
         client = AsyncAnthropicBedrock()
     else:
         client = AsyncAnthropic()
 
-    log("MESSAGES: ", req["messages"])
     async with client.messages.stream(
             max_tokens=req["max_tokens"],
             system=req["system"],
@@ -140,7 +179,7 @@ def map_resp(response) -> str:
     finish_reason = None
     parsed_tool_calls = []
 
-    log("INITIAL DATA: ", data)
+    log("INITIAL RESPONSE DATA: ", data)
 
     for message in data["content"]:
         if 'text' in message.keys() and "<function_calls>" in message["text"]:
@@ -178,6 +217,8 @@ def map_resp(response) -> str:
 
         if 'text' in message.keys():
             message["content"] = message["text"]
+            message.pop("text", None)
+            message.pop("type", None)
 
     if "stop_reason" in data.keys() and data["stop_reason"] == "stop_sequence":
         finish_reason = "tool_calls"
@@ -185,7 +226,13 @@ def map_resp(response) -> str:
     if "stop_reason" in data.keys() and data["stop_reason"] == "end_turn":
         finish_reason = "stop"
 
-    log("DATA: ", data)
+    log("MAPPED RESPONSE DATA: ", data)
+
+    try:
+        delta = data["content"][0]
+    except:
+        delta = []
+
     translated = {
         "id": data["id"],
         "object": "chat.completion.chunk",
@@ -195,7 +242,7 @@ def map_resp(response) -> str:
         "choices": [
             {
                 "index": 0,
-                "delta": data["content"][0],
+                "delta": delta,
                 "finish_reason": finish_reason,
             },
         ],
