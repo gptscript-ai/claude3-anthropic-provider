@@ -70,12 +70,13 @@ def map_req(req: dict) -> dict:
 
         if 'role' in message.keys() and message["role"] == "assistant":
             tool_inputs = []
-            for tool_call in message["tool_calls"]:
-                tool_inputs.append({
-                    "tool_name": tool_call["function"]["name"],
-                    "tool_arguments": tool_call["function"]["arguments"],
-                })
-            tool_inputs_xml.append(construct_tool_inputs_message(message["content"], tool_inputs))
+            if 'tool_calls' in message.keys():
+                for tool_call in message["tool_calls"]:
+                    tool_inputs.append({
+                        "tool_name": tool_call["function"]["name"],
+                        "tool_arguments": tool_call["function"]["arguments"],
+                    })
+                tool_inputs_xml.append(construct_tool_inputs_message(message["content"], tool_inputs))
 
     messages = [d for d in messages if d.get('role') != 'system']
     messages = [d for d in messages if d.get('role') != 'assistant']
