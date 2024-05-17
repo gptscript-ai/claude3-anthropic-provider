@@ -183,7 +183,7 @@ async def completions(request: Request) -> StreamingResponse:
         except:
             error_code = 500
 
-        error_message = {"error": str(e)}
+        error_message = {"error from remote": str(e)}
         return StreamingResponse(json.dumps(error_message), media_type="application/x-ndjson", status_code=error_code)
 
     resp = "data: " + map_resp(accumulated.json()) + "\n\n"
