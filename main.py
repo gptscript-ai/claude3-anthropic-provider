@@ -182,7 +182,9 @@ async def completions(request: Request) -> StreamingResponse:
             error_code = e.__dict__["status_code"]
         except:
             error_code = 500
-        return StreamingResponse({"error": str(e)}, media_type="application/x-ndjson", status_code=error_code)
+
+        error_message = {"error": str(e)}
+        return StreamingResponse(json.dumps(error_message), media_type="application/x-ndjson", status_code=error_code)
 
     resp = "data: " + map_resp(accumulated.json()) + "\n\n"
     return StreamingResponse(resp, media_type="application/x-ndjson")
