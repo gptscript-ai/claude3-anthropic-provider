@@ -158,17 +158,31 @@ async def completions(request: Request) -> StreamingResponse:
     if req["model"].startswith("anthropic."):
         client = AsyncAnthropicBedrock()
     else:
+        if "ANTHROPIC_API_KEY" not in os.environ:
+            error_message = {
+                "error": "ANTHROPIC_API_KEY environment variable not set"
+            }
+            return StreamingResponse(json.dumps(error_message),
+                                     media_type="application/x-ndjson", status_code=400)
         client = AsyncAnthropic()
 
-    async with client.messages.stream(
-            max_tokens=req["max_tokens"],
-            system=req["system"],
-            messages=req["messages"],
-            model=req["model"],
-            temperature=req["temperature"],
-            stop_sequences=["</function_calls>"],
-    ) as stream:
-        accumulated = await stream.get_final_message()
+    try:
+        async with client.messages.stream(
+                max_tokens=req["max_tokens"],
+                system=req["system"],
+                messages=req["messages"],
+                model=req["model"],
+                temperature=req["temperature"],
+                stop_sequences=["</function_calls>"],
+        ) as stream:
+            accumulated = await stream.get_final_message()
+
+    except Exception as e:
+        try:
+            error_code = e.__dict__["status_code"]
+        except:
+            error_code = 500
+        return StreamingResponse({"error": str(e)}, media_type="application/x-ndjson", status_code=error_code)
 
     resp = "data: " + map_resp(accumulated.json()) + "\n\n"
     return StreamingResponse(resp, media_type="application/x-ndjson")
