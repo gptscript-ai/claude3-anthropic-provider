@@ -92,7 +92,7 @@ def map_req(req: dict) -> dict:
                         "tool_name": tool_call["function"]["name"],
                         "tool_arguments": tool_call["function"]["arguments"],
                     })
-                content: str = '\n' + construct_tool_inputs_message(message["content"], tool_inputs)
+                content: str = '\n' + construct_tool_inputs_message(message.get("content", ""), tool_inputs)
                 mapped_messages.append({
                     "role": "assistant",
                     "content": content,
