@@ -103,19 +103,6 @@ def map_req(req: dict) -> dict:
                     "content": message["content"]
                 })
 
-    # if tool_inputs_xml != []:
-    #     content: str = '\n'.join(tool_inputs_xml)
-    #     messages.append({
-    #         "role": "assistant",
-    #         "content": content,
-    #     })
-    #     if tool_outputs_xml != []:
-    #         content: str = '\n'.join(tool_outputs_xml)
-    #         messages.append({
-    #             "role": "user",
-    #             "content": content,
-    #         })
-
     for message in mapped_messages:
         if 'role' in message.keys() and message["role"] == "":
             message["role"] = "assistant"
