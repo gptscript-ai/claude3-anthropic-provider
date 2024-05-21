@@ -150,7 +150,7 @@ async def completions(request: Request) -> StreamingResponse:
                 "error": "ANTHROPIC_API_KEY environment variable not set"
             }
             return StreamingResponse(json.dumps(error_message),
-                                     media_type="application/x-ndjson", status_code=400)
+                                     media_type="application/x-ndjson", status_code=401)
         client = AsyncAnthropic()
 
     try:
