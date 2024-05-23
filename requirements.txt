@@ -1,4 +1,4 @@
 fastapi
 uvicorn[standard]
 anthropic
-git+https://github.com/drpebcak/claudelib@main#egg=claudelib
+git+https://github.com/drpebcak/claudelib@tool-beta#egg=claudelib
