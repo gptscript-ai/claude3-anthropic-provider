@@ -1,7 +1,7 @@
 import json
 import os
 
-import claudelib
+import claude3_provider_common
 from anthropic import AsyncAnthropic
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -35,14 +35,14 @@ async def get_root():
 
 @app.get("/v1/models")
 async def list_models() -> JSONResponse:
-    return await claudelib.list_models(client)
+    return await claude3_provider_common.list_models(client)
 
 
 @app.post("/v1/chat/completions")
 async def completions(request: Request) -> StreamingResponse:
     data = await request.body()
     input = json.loads(data)
-    return await claudelib.completions(client, input)
+    return await claude3_provider_common.completions(client, input)
 
 
 if __name__ == "__main__":
