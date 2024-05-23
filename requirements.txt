@@ -1,5 +1,4 @@
 fastapi
 uvicorn[standard]
 anthropic
-xmltodict
-boto3
+git+https://github.com/drpebcak/claudelib@main#egg=claudelib
