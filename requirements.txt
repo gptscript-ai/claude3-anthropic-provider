@@ -1,4 +1,4 @@
 fastapi
 uvicorn[standard]
 anthropic
-https://github.com/gptscript-ai/claude3-provider-common/archive/main.zip#0.0.2
+https://github.com/gptscript-ai/claude3-provider-common/archive/main.zip#0.0.3
