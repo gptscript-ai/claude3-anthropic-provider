@@ -1,35 +1,44 @@
+import asyncio
 import json
 import os
-import subprocess
-import sys
 
-if 'ANTHROPIC_API_KEY' not in os.environ:
-    tool_input = {
-        "message": "Please enter your Anthropic API token.",
-        "fields": "token",
-        "sensitive": "true",
+from gptscript.gptscript import GPTScript
+from gptscript.opts import Options
+
+gptscript = GPTScript()
+
+
+async def prompt(tool_input) -> dict:
+    run = gptscript.run(
+        tool_path="sys.prompt",
+        opts=Options(
+            input=json.dumps(tool_input),
+        )
+    )
+    output = await run.text()
+    gptscript.close()
+    return json.loads(output)
+
+
+def main():
+    if 'ANTHROPIC_API_KEY' in os.environ:
+        token = os.environ['ANTHROPIC_API_KEY']
+    else:
+        tool_input = {
+            "message": "Please enter your Anthropic API token.",
+            "fields": "token",
+            "sensitive": "true",
+        }
+        result = asyncio.run(prompt(tool_input))
+        token = result["token"]
+
+    output = {
+        "env": {
+            "ANTHROPIC_API_KEY": token,
+        }
     }
-    command = ["gptscript", "--quiet=true", "--disable-cache", "sys.prompt", json.dumps(tool_input)]
-    result = subprocess.run(command, stdin=None, stdout=subprocess.PIPE, text=True)
+    print(json.dumps(output))
 
-    if result.returncode != 0:
-        print("Failed to run sys.prompt.", file=sys.stderr)
-        sys.exit(1)
 
-    try:
-        resp = json.loads(result.stdout.strip())
-        token = resp["token"]
-
-    except json.JSONDecodeError:
-        print("Failed to decode JSON.", file=sys.stderr)
-        sys.exit(1)
-else:
-    token = os.environ['ANTHROPIC_API_KEY']
-
-output = {
-    "env": {
-        "ANTHROPIC_API_KEY": token,
-    }
-}
-
-print(json.dumps(output))
+if __name__ == '__main__':
+    main()
