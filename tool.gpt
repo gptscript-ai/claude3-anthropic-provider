@@ -1,6 +1,6 @@
 Name: Anthropic Claude3 Model Provider
 Description: Model provider for Anthropic hosted Claude3 models
 Model Provider: true
-credential: github.com/gptscript-ai/claude3-anthropic-provider/credential
+credential: github.com/gptscript-ai/claude3-anthropic-provider/credential@tool-beta
 
 #!sys.daemon /usr/bin/env python3 ${GPTSCRIPT_TOOL_DIR}/main.py
