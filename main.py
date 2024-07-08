@@ -47,6 +47,10 @@ async def completions(request: Request) -> StreamingResponse:
 
 if __name__ == "__main__":
     import uvicorn
+    import asyncio
 
-    uvicorn.run("main:app", host="127.0.0.1", port=int(os.environ.get("PORT", "8000")),
+    try:
+        uvicorn.run("main:app", host="127.0.0.1", port=int(os.environ.get("PORT", "8000")),
                 log_level="debug" if debug else "critical", reload=debug, access_log=debug)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        pass
